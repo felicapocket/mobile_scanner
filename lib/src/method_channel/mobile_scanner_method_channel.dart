@@ -125,8 +125,9 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
 
   /// Get the event stream of barcode events that come from the [eventChannel].
   Stream<Map<Object?, Object?>> get eventsStream {
-    _eventsStream ??=
-        eventChannel.receiveBroadcastStream().cast<Map<Object?, Object?>>();
+    _eventsStream ??= eventChannel
+        .receiveBroadcastStream()
+        .cast<Map<Object?, Object?>>();
 
     return _eventsStream!;
   }
@@ -271,13 +272,12 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
         kAnalyzeImageMethodName,
         {
           'filePath': path,
-          'formats':
-              formats.isEmpty
-                  ? null
-                  : [
-                    for (final BarcodeFormat format in formats)
-                      if (format != BarcodeFormat.unknown) format.rawValue,
-                  ],
+          'formats': formats.isEmpty
+              ? null
+              : [
+                  for (final BarcodeFormat format in formats)
+                    if (format != BarcodeFormat.unknown) format.rawValue,
+                ],
         },
       );
 
@@ -516,6 +516,13 @@ class MethodChannelMobileScanner extends MobileScannerPlatform {
   @override
   Future<void> dispose() async {
     await updateScanWindow(null);
-    await stop();
+    // Force the stop so a half-initialized native session is torn down even
+    // when `_textureId` was never set. This happens when `start()` did not
+    // complete, e.g. because the camera was not ready yet (such as right after
+    // a device reboot): the native `captureSession`/`device` are created but
+    // `start()` never returns a texture id, so a non-forced `stop()` early
+    // returns and leaves the native camera session alive. The next `start()`
+    // then fails with `ALREADY_STARTED`.
+    await stop(force: true);
   }
 }
